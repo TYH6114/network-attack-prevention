@@ -1,0 +1,93 @@
+1. Tổng quan
+    + Là hệ thống có khả năng ngăn chặn các truy cập không hợp lệ và đã biết từ bên ngoài vào tài nguyên cần bảo vệ
+    + Có thể triển khai ở nhiều vị trí (phụ thuộc vào cách thức định nghĩa phạm vi tài nguyên cần bảo vệ)
+          - Mạng ngoại vi  |    Network-based firewall
+          - Mạng nội bộ    |
+          - Nút mạng(Host-based firewall)
+          - Ưng dụng (Application firewall)
+    + Khả năng của tường lửa 
+          - Thi hành các chính sách an toàn baỏ mật hoạt động như một hệ thống cảnh vệ
+                    + Cho phép từ chối lưu lượng mạng nào đó đi qua tường lửa dựa trên đặc điểm nào đó
+          - Hạn chế các hành vi tấn công vào mạng
+                    + Từ mạng bên ngoài (internet)  vào mạng nội bộ
+                    + Từ phân vùng mạng nội bộ này tới những phân vùng mạng nội bộ khác
+          - Lưu nhật ký các lưu lượng mạng
+    + Tường lửa không thể:
+          - Không bảo vệ được tài nguyên trước các mối nguy cơ từ bên trong 
+          - Không kiểm soát được các lưu lượng mạng không đi qua 
+          - Không kiểm soát đầy đủ với các lưu lượng đã được mã hóa
+          - Không ngăn chặn được các tấn công chưa biết
+          - Không chống lại được hoàn toàn các nguy cơ từ phần mềm độc hại
+                    + Triển khai ở nhiều vị trí khác nhau
+                    + Kết hợp các giải pháp khác : phòng chống phần mềm độc hại (IDS/IPS) điều khiển truy cập 
+                    kiểm toán(auditing)
+                    + Cập nhật liên tục các chính sách mới (update rule,...)
+                    
+                
+    
+ 2. Các công nghệ tường lửa
+ 
+ Các thế hệ tường lửa:
+    + packet filter: dựa trên việc kiểm tra một số giá trị trong phần tiều đề để xác định gói tin được chấp nhận hoặc chặn
+        - Địa chỉ MAC
+        - Địa chỉ nguồn , đích 
+        - Số hiệu cổng nguồn , đích 
+        - Giao thức
+    ví dụ:
+    rule              source        source-port         destination-ip            destination-port   action
+    1                  Any            Any               192.168.120.0              Above 1023         Allow
+    2                  192.168.120.1  Any               Any                        Any                Deny
+    3                  Any            Any               192.168.120.1              Any                Deny
+    
+    *> Mỗi firewall có một tập định nghĩa cách thức xử lý gói tin (đi qua hoặc chặn
+ Ưu điểm:
+    + Đơn giản
+    + Tốc độ xử lý nhanh
+ Hạn chế:
+     + Có quá ít lựa chọn xử lý (drop accept , forward)
+     + Không kiểm soát được nội dung gói tin
+     + Khả năng hộ trợ ghi nhật ký hạn chế
+     + Dễ dàng vượt qua bằng các kỹ thuật giả mạo thông tin trên phần tiêu đề
+     + Không hỗ trợ tính năng xác thực
+     
+2.1 Cisco ACL
+    + Standard ACL: Lọc dựa trên địa chỉ nguồn
+    
+          # access-list ACL_num  {permit|deny} {srcAddr - srcWildcard | host srcAddr | any}
+    
+    + Extended ACL: Lọc dựa trên địa chỉ nguồn , đích , giao thức
+          # access-list ACL_num {permit | deny} protocol {srcAddr srcWildcard | host srcAddr | any} [operator srcPort] \
+          {dstAddr dstWildcard | host dstAddr | any} [operator dstPort]
+          # Luật mặc định: deny
+          
+ 2.2 iptables
+ 1. Các loại bảng
+     - The filter table: 
+              + Dùng để lọc gói dựa theo luật
+              + Đưa ra quyết định đối với gói tin
+     - The NAT tables:
+              + Thực hiện NAT gói tin 
+ 2.  Netfilter Hooks
+     - Có năm hook netfilter tương ứng với 5 chain
+          + chain PREROUTING : Rule trong chain này được thực thi ngay khi gói tin vừa vào đến giao diện mạng  
+              (chain tồn tại ở các table : nat, mangle, raw)
+          + chain INPUT:      Rule trong chain này được thực thi ngay trước khi gói tin gặp tiến trình. 
+              (raw, mangle, nat, filter) 
+   
+ 
+3. Các trạng thái của kết nối
++ Đây là những trạng thái mà hệ thống connection tracking theo dõi trạng thái của các kết nối 
+        -   NEW: khi có môt gói tin mới được gửi tới không nằm trong bất kỳ connection nào hiện có , hệ thống sẽ khởi tạo một
+                kết nối mới và gắn nhãn NEW cho kết nối này. Nhãn này dùng cho cả TCP và UDP
+        -   ESTABLISHED: Trạng thái chuyển NEW to ESTABLISHED khi nhận được phản hồi hợp lệ từ phía đối diện của kết nối.
+                Với kết nối TCP là gói SYN/ACK với UDP/ICMP là phản hồi mà ở đó phía địa chỉ nhuồn và địac chỉ đích được hoán đổi
+                
+        -   RELATED    : Gói tin được gởi tới không thuộc về một kết nối hiện có nhưng có liên quan đến một kết nối đang trên hệ 
+                  Đây có thể là một kết nối phụ hỗ trợ cho kết nối đang có trên hệ thống
+        -   INVALID     : Gói tin được đánh dấu INVALID khi gói tin này không có bất cứ quan hệ gì với các kết nối đang có sẵn
+                  không thích hợp để khởi tạo một kết nối mới hoặc đơn gian là không thể xác định được gói tin này không thể tìm được
+                  kết quả trong bảng định tuyến
+        -    UNTRACKED   : Gói tin đi qua bảng raw và được xác định 
+                  
+ 
+ 
